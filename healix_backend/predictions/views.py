@@ -36,7 +36,7 @@ class ConditionPredictionView(APIView):
             model_path = os.path.join(
                 os.path.dirname(__file__),
                 "models",
-                "/clinical_model_20250127_011852.keras",
+                "clinical_model_20250127_011852.keras",
             )
             if not os.path.exists(model_path):
                 return Response(
