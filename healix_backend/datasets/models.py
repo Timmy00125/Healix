@@ -1,7 +1,5 @@
 from django.db import models
 
-# Create your models here.
-
 
 class Patient(models.Model):
     """
@@ -33,7 +31,7 @@ class Condition(models.Model):
     Condition model linked to patients.
     """
 
-    id = models.CharField(primary_key=True, max_length=255)
+    # Removed id = models.CharField(primary_key=True, max_length=255) - Let Django auto-generate PK
     patient = models.ForeignKey(
         Patient, on_delete=models.CASCADE, related_name="conditions"
     )
@@ -49,7 +47,7 @@ class Observation(models.Model):
     Observation model for vital signs and other observations linked to patients.
     """
 
-    id = models.CharField(primary_key=True, max_length=255)
+    # Removed id = models.CharField(primary_key=True, max_length=255) - Let Django auto-generate PK
     patient = models.ForeignKey(
         Patient, on_delete=models.CASCADE, related_name="observations"
     )

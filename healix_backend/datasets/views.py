@@ -99,26 +99,31 @@ class DatasetUploadViewSet(viewsets.ViewSet):
             )
 
         try:
-            df = pd.read_csv(file_obj)
+            df = pd.read_csv(file_obj)  # Or sep=',' if comma-separated
+
             for index, row in df.iterrows():
                 # Data Preprocessing and Cleaning
                 patient_id = row["PATIENT"]
+                start_date_str = row["START"]
                 start_date = (
-                    pd.to_datetime(row["START"]).date()
-                    if pd.notnull(row["START"])
+                    pd.to_datetime(start_date_str).date()
+                    if pd.notnull(start_date_str)
                     else None
                 )
+
                 try:
                     patient = Patient.objects.get(id=patient_id)
                 except Patient.DoesNotExist:
                     return Response(
-                        {"error": f"Patient with ID {patient_id} not found."},
+                        {
+                            "error": f"Patient with ID {patient_id} not found for condition."
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 condition_data = {
-                    "id": row["Id"],
-                    "patient": patient.id,  # Use patient id
+                    # Removed 'id': row['Id'], - No condition ID from CSV, Django will auto-generate PK
+                    "patient": patient.id,
                     "description": row["DESCRIPTION"],
                     "start_date": start_date,
                 }
@@ -148,31 +153,29 @@ class DatasetUploadViewSet(viewsets.ViewSet):
             )
 
         try:
-            df = pd.read_csv(file_obj)
+            df = pd.read_csv(file_obj)  # Or sep=',' if comma-separated
+
             for index, row in df.iterrows():
                 # Data Preprocessing and Cleaning
                 patient_id = row["PATIENT"]
-                date = (
-                    pd.to_datetime(row["DATE"]).date()
-                    if pd.notnull(row["DATE"])
-                    else None
-                )
-                value = (
-                    row["VALUE"] if pd.notnull(row["VALUE"]) else None
-                )  # Handle missing values
+                date_str = row["DATE"]
+                date = pd.to_datetime(date_str).date() if pd.notnull(date_str) else None
+                value = row["VALUE"] if pd.notnull(row["VALUE"]) else None
                 units = row["UNITS"] if pd.notnull(row["UNITS"]) else None
 
                 try:
                     patient = Patient.objects.get(id=patient_id)
                 except Patient.DoesNotExist:
                     return Response(
-                        {"error": f"Patient with ID {patient_id} not found."},
+                        {
+                            "error": f"Patient with ID {patient_id} not found for observation."
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 observation_data = {
-                    "id": row["Id"],
-                    "patient": patient.id,  # Use patient id
+                    # Removed 'id': str(uuid.uuid4()), - No need to generate ID, Django auto-generates PK
+                    "patient": patient.id,
                     "description": row["DESCRIPTION"],
                     "value": value,
                     "units": units,
