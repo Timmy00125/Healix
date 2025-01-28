@@ -1,5 +1,3 @@
-from django.shortcuts import render
-
 import pandas as pd
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -7,6 +5,44 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Patient, Condition, Observation
 from .serializers import PatientSerializer, ConditionSerializer, ObservationSerializer
+import uuid
+
+
+def clean_observation_value(value_str):
+    """
+    Cleans and converts a string value from the observation dataset to a float or None.
+    Handles various formats including comma decimal separators, thousands separators,
+    units attached, non-numeric prefixes, and missing value representations.
+    """
+    if pd.isna(value_str) or value_str in ["N/A", "NULL", "Missing", "Unknown", ""]:
+        return None  # Handle missing values
+
+    value_text = str(
+        value_str
+    ).strip()  # Convert to string and remove leading/trailing whitespace
+
+    # Remove units if present (assuming unit is separated by space and at the end)
+    parts = value_text.split()
+    numeric_part_str = parts[0]
+
+    # Remove thousands separators (commas and spaces)
+    numeric_part_str = numeric_part_str.replace(",", "").replace(" ", "")
+
+    # Replace comma decimal separator with period
+    numeric_part_str = numeric_part_str.replace(",", ".")
+
+    # Remove non-numeric prefixes like ">" or "<" (simply take the number after)
+    if (
+        numeric_part_str.startswith(">")
+        or numeric_part_str.startswith("<")
+        or numeric_part_str.startswith("=")
+    ):
+        numeric_part_str = numeric_part_str[1:]  # Remove the first character
+
+    try:
+        return float(numeric_part_str)
+    except ValueError:
+        return None  # Return None if still cannot convert to float
 
 
 class PatientViewSet(viewsets.ModelViewSet):
@@ -54,8 +90,8 @@ class DatasetUploadViewSet(viewsets.ViewSet):
 
         try:
             df = pd.read_csv(file_obj)
+
             for index, row in df.iterrows():
-                # Data Preprocessing and Cleaning
                 birthdate = (
                     pd.to_datetime(row["BIRTHDATE"]).date()
                     if pd.notnull(row["BIRTHDATE"])
@@ -71,7 +107,6 @@ class DatasetUploadViewSet(viewsets.ViewSet):
                     "gender": row["GENDER"],
                     "birthdate": birthdate,
                     "age": age,
-                    # Add other patient related fields from CSV if needed in Patient model
                 }
                 serializer = PatientSerializer(data=patient_data)
                 if serializer.is_valid():
@@ -99,10 +134,9 @@ class DatasetUploadViewSet(viewsets.ViewSet):
             )
 
         try:
-            df = pd.read_csv(file_obj)  # Or sep=',' if comma-separated
+            df = pd.read_csv(file_obj)
 
             for index, row in df.iterrows():
-                # Data Preprocessing and Cleaning
                 patient_id = row["PATIENT"]
                 start_date_str = row["START"]
                 start_date = (
@@ -122,7 +156,6 @@ class DatasetUploadViewSet(viewsets.ViewSet):
                     )
 
                 condition_data = {
-                    # Removed 'id': row['Id'], - No condition ID from CSV, Django will auto-generate PK
                     "patient": patient.id,
                     "description": row["DESCRIPTION"],
                     "start_date": start_date,
@@ -153,15 +186,16 @@ class DatasetUploadViewSet(viewsets.ViewSet):
             )
 
         try:
-            df = pd.read_csv(file_obj)  # Or sep=',' if comma-separated
+            df = pd.read_csv(file_obj)  # Adjust separator if needed
 
             for index, row in df.iterrows():
-                # Data Preprocessing and Cleaning
                 patient_id = row["PATIENT"]
                 date_str = row["DATE"]
                 date = pd.to_datetime(date_str).date() if pd.notnull(date_str) else None
-                value = row["VALUE"] if pd.notnull(row["VALUE"]) else None
                 units = row["UNITS"] if pd.notnull(row["UNITS"]) else None
+
+                # Clean and convert the 'VALUE' column using the dedicated function
+                value = clean_observation_value(row["VALUE"])
 
                 try:
                     patient = Patient.objects.get(id=patient_id)
@@ -174,10 +208,9 @@ class DatasetUploadViewSet(viewsets.ViewSet):
                     )
 
                 observation_data = {
-                    # Removed 'id': str(uuid.uuid4()), - No need to generate ID, Django auto-generates PK
                     "patient": patient.id,
                     "description": row["DESCRIPTION"],
-                    "value": value,
+                    "value": value,  # Use the cleaned value
                     "units": units,
                     "date": date,
                 }
